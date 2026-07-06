@@ -79,9 +79,15 @@ spec:
       defaultCount: 1
       minCount: 1
       maxCount: 1
-  nodeSelectors:
-    - key: nvidia.com/gpu.product
-      value: NVIDIA-H100-NVL
+  scheduling:
+    type: Node
+    node:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
 ---
 apiVersion: serving.kserve.io/v1alpha1
 kind: ServingRuntime

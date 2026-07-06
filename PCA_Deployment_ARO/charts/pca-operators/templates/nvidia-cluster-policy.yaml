@@ -15,7 +15,6 @@ spec:
   daemonsets: {}
   driver:
     enabled: true
-    useOpenShiftDriverToolkit: true
     upgradePolicy:
       autoUpgrade: true
       maxParallelUpgrades: 1
