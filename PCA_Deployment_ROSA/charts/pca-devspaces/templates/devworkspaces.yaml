@@ -1,31 +1,130 @@
 # DevWorkspace definitions — one per entry in .Values.devspaces.
 #
+# type: continue (default) — base UDI image with Continue, Roo Code, Cline extensions.
+# type: opencode           — custom devspaces-opencode image with OpenCode Web UI on port 4096.
+#
 # NOTE: DevWorkspaces are created with started: false. Users start their workspace
 # from the DevSpaces dashboard so the controller stamps the correct creator identity
 # (required for terminal exec to work).
 #
-# The postStart fixes a DevSpaces 3.28 permission regression where the che-code init
-# container creates /checode/remote as root (not group-writable). The fix renames the
-# root-owned directory and recreates it with correct ownership so extensions can install.
+# Continue workspace postStart:
+#   The postStart fixes a DevSpaces 3.28 permission regression where the che-code init
+#   container creates /checode/remote as root (not group-writable). The fix renames the
+#   root-owned directory and recreates it with correct ownership so extensions can install.
 #
-# Extension configuration:
-#   Continue  — config.yaml via continue-config ConfigMap (per-namespace + global)
-#   Roo Code  — provider_profiles.json via roo-code-provider-config ConfigMap (per-namespace)
-#   Cline     — providers.json via cline-provider-config (+ ~/.cline home mount); X-PCA-* headers
+# OpenCode workspace postStart:
+#   1. write-opencode-config  — writes opencode.json from OPENAI_BASE_URL + VLLM_MODEL_ID env vars
+#   2. download-opencode-extension — fetches .vsix for VS Code auto-install via DEFAULT_EXTENSIONS
+#   3. start-opencode-web — starts Web UI on port 4096 (exposed as public endpoint)
 #
-# Attribution headers (Roo + Continue + Cline):
+# Attribution headers (Roo + Continue + Cline, Continue workspaces only):
 #   X-PCA-User / X-PCA-DevSpace / optional X-PCA-Team → Langfuse when enabled
-#   Full prompt/completion bodies: vLLM middleware → Langfuse when langfuse.ioCapture=full
-#
-# Model endpoint (cluster-internal HTTPS):
-#   https://llm-d-gateway-data-science-gateway-class.<namespace>.svc.cluster.local/v1
 {{- range $i, $devspace := .Values.devspaces }}
+{{- $ns := $devspace.namespace | default $.Release.Namespace }}
+{{- if eq ($devspace.type | default "continue") "opencode" }}
 ---
 apiVersion: workspace.devfile.io/v1alpha2
 kind: DevWorkspace
 metadata:
   name: {{ $devspace.name }}
-  namespace: {{ $devspace.namespace | default $.Release.Namespace }}
+  namespace: {{ $ns }}
+  labels:
+    che.eclipse.org/devworkspace: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+    che.eclipse.org/devfile-source: |
+      custom:
+        type: inline
+spec:
+  started: false
+  routingClass: che
+  contributions:
+    - name: editor
+      uri: "https://eclipse-che.github.io/che-plugin-registry/main/v3/plugins/che-incubator/che-code/latest/devfile.yaml"
+  template:
+    components:
+      - name: dev-tools
+        container:
+          image: image-registry.openshift-image-registry.svc:5000/opencode-build/devspaces-opencode:latest
+          memoryLimit: 8Gi
+          memoryRequest: 1Gi
+          cpuLimit: "4000m"
+          cpuRequest: 500m
+          mountSources: true
+          env:
+            - name: VLLM_ENDPOINT
+              value: "https://llm-d-gateway-data-science-gateway-class.{{ $.Values.aiServingNamespace }}.svc.cluster.local/v1"
+            - name: VLLM_MODEL_ID
+              value: {{ $.Values.modelId | quote }}
+            - name: OPENAI_API_KEY
+              value: "EMPTY"
+            - name: OPENAI_BASE_URL
+              value: "https://llm-d-gateway-data-science-gateway-class.{{ $.Values.aiServingNamespace }}.svc.cluster.local/v1"
+            - name: NODE_TLS_REJECT_UNAUTHORIZED
+              value: "0"
+            - name: DEFAULT_EXTENSIONS
+              value: "/tmp/opencode-ext/sst-dev.opencode.vsix"
+          endpoints:
+            - name: opencode-web
+              targetPort: 4096
+              exposure: public
+              protocol: https
+              attributes:
+                cookiesAuthEnabled: true
+    commands:
+      - id: write-opencode-config
+        exec:
+          label: "Write OpenCode Config"
+          component: dev-tools
+          commandLine: |
+            mkdir -p ~/.config/opencode ~/.local/share/opencode
+            python3 << 'PYEOF'
+import json, os
+config = {
+    "$schema": "https://opencode.ai/config.json",
+    "provider": {
+        "vllm": {
+            "npm": "@ai-sdk/openai-compatible",
+            "name": "Private AI Gateway (llm-d)",
+            "options": {"baseURL": os.environ["OPENAI_BASE_URL"]},
+            "models": {os.environ["VLLM_MODEL_ID"]: {"name": os.environ["VLLM_MODEL_ID"]}}
+        }
+    },
+    "model": "vllm/" + os.environ["VLLM_MODEL_ID"]
+}
+open(os.path.expanduser("~/.config/opencode/opencode.json"), "w").write(json.dumps(config, indent=2))
+PYEOF
+            echo '{"vllm":{"type":"api","key":"EMPTY"}}' > ~/.local/share/opencode/auth.json
+            echo "OpenCode config written"
+      - id: download-opencode-extension
+        exec:
+          label: "Download OpenCode Extension"
+          component: dev-tools
+          commandLine: |
+            mkdir -p /tmp/opencode-ext
+            curl -fsSL "https://open-vsx.org/api/sst-dev/opencode/latest/file/sst-dev.opencode-0.0.13.vsix" \
+              --location -o /tmp/opencode-ext/sst-dev.opencode.vsix
+            echo "OpenCode extension downloaded"
+      - id: start-opencode-web
+        exec:
+          label: "Start OpenCode Web UI"
+          component: dev-tools
+          commandLine: |
+            nohup opencode web --port 4096 --hostname 0.0.0.0 > /tmp/opencode-web.log 2>&1 &
+            echo "OpenCode Web UI started on port 4096"
+    events:
+      postStart:
+        - write-opencode-config
+        - download-opencode-extension
+        - start-opencode-web
+{{- else }}
+---
+apiVersion: workspace.devfile.io/v1alpha2
+kind: DevWorkspace
+metadata:
+  name: {{ $devspace.name }}
+  namespace: {{ $ns }}
   labels:
     che.eclipse.org/devworkspace: "true"
   annotations:
@@ -130,4 +229,5 @@ spec:
     events:
       postStart:
         - install-and-configure-extensions
+{{- end }}
 {{- end }}

@@ -1,5 +1,7 @@
 namespace: ai-serving
 clusterResources: true
+vllm:
+  maxModelLen: 32768
 gatewayName: llm-d-gateway
 # Observability (pca-observability subchart)
 # Installs when observability.enabled (default true because grafana.enabled defaults true).
