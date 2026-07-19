@@ -69,7 +69,8 @@ data:
       "recommendations": [
         "Continue.continue",
         "saoudrizwan.claude-dev",
-        "RooVeterinaryInc.roo-cline"
+        "RooVeterinaryInc.roo-cline",
+        "sst-dev.opencode"
       ]
     }
 {{- end }}

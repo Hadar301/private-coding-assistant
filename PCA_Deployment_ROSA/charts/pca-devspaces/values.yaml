@@ -1,4 +1,8 @@
 aiServingNamespace: ai-serving
+modelId: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+opencodeBuild:
+  enabled: false
+  opencodeVersion: "1.15.13"
 devspacesGlobalConfig:
   enabled: true
 guardrails:

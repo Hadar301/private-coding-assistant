@@ -35,8 +35,9 @@ RUN_FLAGS := --rm \
 COMPONENT ?=
 PYTEST_ARGS ?=
 N ?= 4
+DEV_USER ?=
 
-.PHONY: build shell run help smoke unit ai-serving-deploy-existing-openshift ai-serving-undeploy-existing-openshift devspace-deploy-existing-openshift devspace-undeploy-existing-openshift setup-idp mcp-enable mcp-disable
+.PHONY: build shell run help smoke unit ai-serving-deploy-existing-openshift ai-serving-undeploy-existing-openshift devspace-deploy-existing-openshift devspace-opencode-deploy-existing-openshift devspace-undeploy-existing-openshift setup-idp mcp-enable mcp-disable
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -81,6 +82,21 @@ devspace-deploy-existing-openshift: ## Deploy a devspace (DEV_NAMESPACE=, AI_NAM
 		-f $(DEPLOY_VALUES_DIR)/values-devspaces.yaml \
 		--set aiServingNamespace=$(AI_NAMESPACE) \
 		$(if $(filter true,$(MCP_ENABLED)),--set mcp.enabled=true,) \
+		$(HELM_ARGS)
+
+devspace-opencode-deploy-existing-openshift: ## Deploy an OpenCode devspace (DEV_NAMESPACE=, AI_NAMESPACE=, DEV_USER=)
+	@if [ -z "$(DEV_NAMESPACE)" ]; then echo "ERROR: DEV_NAMESPACE is required. Pass DEV_NAMESPACE=<name>"; exit 1; fi
+	@if [ -z "$(DEV_USER)" ]; then echo "ERROR: DEV_USER is required. Pass DEV_USER=<username>"; exit 1; fi
+	oc create namespace $(DEV_NAMESPACE) --dry-run=client -o yaml | oc apply -f -
+	oc label namespace $(DEV_NAMESPACE) \
+		app.kubernetes.io/component=workspaces-namespace \
+		app.kubernetes.io/part-of=che.eclipse.org --overwrite
+	oc annotate namespace $(DEV_NAMESPACE) \
+		che.eclipse.org/username=$(DEV_USER) --overwrite
+	helm upgrade --install $(DEV_NAMESPACE)-devspaces $(CHARTS_DIR)/pca-devspaces \
+		--namespace $(DEV_NAMESPACE) \
+		-f $(DEPLOY_VALUES_DIR)/values-devspaces-opencode.yaml \
+		--set aiServingNamespace=$(AI_NAMESPACE) \
 		$(HELM_ARGS)
 
 devspace-undeploy-existing-openshift: ## Remove a devspace (DEV_NAMESPACE=)

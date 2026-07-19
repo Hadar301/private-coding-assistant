@@ -4,3 +4,5 @@ clusterResources: false
 pca-observability:
   prometheus:
     accessMode: namespace
+vllm:
+  maxModelLen: 49152

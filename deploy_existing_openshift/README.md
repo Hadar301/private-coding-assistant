@@ -125,6 +125,88 @@ See `PCA_Deployment_ROSA/charts/pca-platform-config/charts/pca-mcp/README.md` fo
 
 ---
 
+## OpenCode Devspace
+
+OpenCode is an AI coding agent with a Web UI and TUI. It runs in a dedicated DevSpaces workspace using a custom image (`devspaces-opencode`) that ships the OpenCode CLI pre-installed. The workspace exposes port 4096 as a public endpoint for the Web UI.
+
+> **Known limitation — responses appear empty in OpenCode UI:**
+> `Qwen3-Coder-30B-A3B-Instruct-FP8` in thinking mode places the entire response (including the actual answer) inside `<think>` reasoning tokens. vLLM's `--reasoning-parser=qwen3` correctly extracts this to the `reasoning` field, leaving `content: null`. OpenCode reads `content` only, so the response area is blank — the answer is visible only by expanding the "Thought" section. This is a model behaviour issue caused by FP8 quantization degrading the reasoning/content split; the full-precision model produces correct output. Continue is unaffected (it surfaces reasoning tokens as visible output). Workaround options: (1) run a local response-transformation proxy that copies `reasoning` → `content` when `content` is null; (2) replace with full-precision model.
+
+### Prerequisites
+
+1. The target user must exist (`oc get user <username>`)
+2. The user must have logged into the DevSpaces dashboard at least once to trigger namespace auto-provisioning:
+   ```
+   https://devspaces.apps.<cluster-domain>/
+   ```
+
+### Step 1 — Build the custom OpenCode image
+
+The `opencode-image-build.yaml` template creates the build infrastructure in the `opencode-build` namespace. It is included in the `pca-devspaces` chart and deployed as part of the OpenCode devspace release. Trigger the build after the first deploy:
+
+```bash
+oc start-build devspaces-opencode -n opencode-build --follow
+```
+
+The build installs OpenCode CLI (version pinned via `opencodeBuild.opencodeVersion` in values) and bakes the llm-d provider config into the image.
+
+### Step 2 — Deploy the OpenCode devspace
+
+```bash
+make devspace-opencode-deploy-existing-openshift \
+  DEV_NAMESPACE=<username>-devspaces \
+  AI_NAMESPACE=<ai-serving-namespace> \
+  DEV_USER=<username>
+```
+
+This target:
+- Creates the namespace with DevSpaces labels (idempotent — safe if it already exists)
+- Deploys `pca-devspaces` chart using `values-devspaces-opencode.yaml`
+
+The DevWorkspace is created with `started: false`. The user starts it from the DevSpaces dashboard.
+
+### Step 3 — Trigger the image build (first time only)
+
+```bash
+oc start-build devspaces-opencode -n opencode-build --follow
+```
+
+The workspace pod will stay `Pending` until the image is available. Once the build completes and the user starts the workspace, the postStart sequence runs:
+1. Writes `~/.config/opencode/opencode.json` from workspace env vars
+2. Downloads the OpenCode VS Code extension (`.vsix`)
+3. Starts `opencode web --port 4096 --hostname 0.0.0.0`
+
+### Access
+
+After the workspace is `Running 1/1`, the Web UI is available at the `opencode-web` endpoint shown in the DevSpaces dashboard, or via:
+
+```bash
+oc get routes -n <username>-devspaces | grep opencode-web
+```
+
+The TUI (`opencode`) is available in the workspace terminal — use **Terminal: Create New Terminal (select a container)** and pick `dev-tools` to avoid the DevSpaces cursor focus issue.
+
+### Local terminal (desktop OpenCode)
+
+To connect the local OpenCode desktop app to the cluster llm-d endpoint, configure `~/.config/opencode/opencode.jsonc` with the provider pointing to the external ELB URL. A reference config is at `deploy_existing_openshift/values-devspaces-opencode.yaml` — the external endpoint can be retrieved with:
+
+```bash
+oc get llminferenceservice -n <ai-serving-namespace> -o jsonpath='{.items[0].status.url}'
+```
+
+Run with `NODE_TLS_REJECT_UNAUTHORIZED=0 opencode` (ELB cert is self-signed).
+
+Also create `~/.local/share/opencode/auth.json`:
+```json
+{"vllm":{"type":"api","key":"EMPTY"}}
+```
+
+### vLLM context window
+
+The default `--max-model-len=32768` is insufficient — OpenCode requests 32000 output tokens by default, leaving no room for the prompt. `values-ai-serving.yaml` sets `vllm.maxModelLen: 49152`. If you redeploy AI serving without this override, OpenCode will enter a session compaction loop.
+
+---
+
 ### Replacing HTPasswd with Enterprise IDP
 
 For production, replace HTPasswd with your organization's identity provider. OpenShift OAuth supports OIDC, LDAP, and SAML (via proxy).
