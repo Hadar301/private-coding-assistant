@@ -140,41 +140,34 @@ OpenCode is an AI coding agent with a Web UI and TUI. It runs in a dedicated Dev
    https://devspaces.apps.<cluster-domain>/
    ```
 
-### Step 1 — Build the custom OpenCode image
-
-The `opencode-image-build.yaml` template creates the build infrastructure in the `opencode-build` namespace. It is included in the `pca-devspaces` chart and deployed as part of the OpenCode devspace release. Trigger the build after the first deploy:
+### Step 1 — Deploy the OpenCode devspace
 
 ```bash
-oc start-build devspaces-opencode -n opencode-build --follow
-```
-
-The build installs OpenCode CLI (version pinned via `opencodeBuild.opencodeVersion` in values) and bakes the llm-d provider config into the image.
-
-### Step 2 — Deploy the OpenCode devspace
-
-```bash
-make devspace-opencode-deploy-existing-openshift \
+make devspace-deploy-existing-openshift \
   DEV_NAMESPACE=<username>-devspaces \
   AI_NAMESPACE=<ai-serving-namespace> \
-  DEV_USER=<username>
+  DEV_USER=<username> \
+  TYPE=opencode
 ```
 
 This target:
 - Creates the namespace with DevSpaces labels (idempotent — safe if it already exists)
-- Deploys `pca-devspaces` chart using `values-devspaces-opencode.yaml`
+- Deploys `pca-devspaces` chart using `values-devspaces-opencode.yaml`, which also creates the `opencode-build` namespace and BuildConfig
 
-The DevWorkspace is created with `started: false`. The user starts it from the DevSpaces dashboard.
+The DevWorkspace is created with `started: false`.
 
-### Step 3 — Trigger the image build (first time only)
+### Step 2 — Trigger the image build (first time only)
 
 ```bash
 oc start-build devspaces-opencode -n opencode-build --follow
 ```
 
-The workspace pod will stay `Pending` until the image is available. Once the build completes and the user starts the workspace, the postStart sequence runs:
+The build installs OpenCode CLI (version pinned via `opencodeBuild.opencodeVersion` in values) and stubs `xdg-open` to prevent crashes in headless environments.
+
+The workspace pod will stay `Pending` until the image is available. Once the build completes, the user starts the workspace from the DevSpaces dashboard. The postStart sequence runs automatically:
 1. Writes `~/.config/opencode/opencode.json` from workspace env vars
 2. Downloads the OpenCode VS Code extension (`.vsix`)
-3. Starts `opencode web --port 4096 --hostname 0.0.0.0`
+3. Reads the password from the `opencode-web-password` Secret and starts `opencode web --port 4096` (password-protected)
 
 ### Access
 
@@ -184,10 +177,7 @@ After the workspace is `Running 1/1`, the Web UI is available at the `opencode-w
 oc get routes -n <username>-devspaces | grep opencode-web
 ```
 
-The Web UI is password-protected (HTTP Basic Auth). Credentials:
-
-- **Username**: `opencode`
-- **Password**: retrieve with:
+The Web UI is password-protected (HTTP Basic Auth, username: `opencode`). Retrieve the password:
 
 ```bash
 oc get secret opencode-web-password -n <username>-devspaces \
