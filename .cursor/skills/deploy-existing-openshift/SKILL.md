@@ -64,18 +64,18 @@ oc get route pca-langfuse -n <NS>
 
 OpenCode is a separate workspace type using a custom image with the OpenCode CLI pre-installed and a Web UI on port 4096.
 
-**First time only — build the image:**
+**Deploy (creates namespace, BuildConfig, and DevWorkspace):**
 ```bash
-oc start-build devspaces-opencode -n opencode-build --follow
-```
-(The BuildConfig is created by the first `devspace-opencode-deploy-existing-openshift` run.)
-
-**Deploy:**
-```bash
-make devspace-opencode-deploy-existing-openshift \
+make devspace-deploy-existing-openshift \
   DEV_NAMESPACE=<username>-devspaces \
   AI_NAMESPACE=<ai-namespace> \
-  DEV_USER=<username>
+  DEV_USER=<username> \
+  TYPE=opencode
+```
+
+**First time only — trigger the image build:**
+```bash
+oc start-build devspaces-opencode -n opencode-build --follow
 ```
 
 The user starts the workspace from the DevSpaces dashboard. The Web UI is password-protected (HTTP Basic Auth, username: `opencode`). Retrieve the password:
