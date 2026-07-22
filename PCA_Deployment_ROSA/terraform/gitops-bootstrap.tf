@@ -111,7 +111,9 @@ resource "null_resource" "argocd_app_of_apps" {
               - name: gitops.targetRevision
                 value: ${var.gitops_repo_revision}
               - name: gitops.basePath
-                value: ${var.gitops_charts_path}
+                value: charts
+              - name: gitops.cloud
+                value: rosa
               - name: hfToken.raw
                 value: ${var.huggingface_token}
         destination:

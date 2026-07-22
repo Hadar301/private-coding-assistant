@@ -8,7 +8,7 @@ PROJECT_DIR := $(shell pwd)
 AI_NAMESPACE ?= private-assistant-ai-serving
 HF_TOKEN ?= $(HUGGINGFACE_TOKEN)
 MCP_ENABLED ?= false
-CHARTS_DIR := PCA_Deployment_ROSA/charts
+CHARTS_DIR := charts
 SCRIPTS_DIR := PCA_Deployment_ROSA/scripts
 DEPLOY_VALUES_DIR := deploy_existing_openshift
 
