@@ -96,7 +96,7 @@ spec:
   name: devspaces
   source: redhat-operators
   sourceNamespace: openshift-marketplace
-{{- if (.Values.operators).nfd.enabled | default true }}
+{{- if not (eq false ((.Values.operators).nfd).enabled) }}
 ---
 # Node Feature Discovery (required by NVIDIA GPU Operator to detect GPUs)
 apiVersion: v1
