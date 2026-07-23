@@ -10,6 +10,10 @@ vllm:
   reasoningParser: "qwen3"
   image: ""
   extraEnv: {}
+  # Set true when RHOAI bundled vLLM doesn't support the model architecture.
+  # Renders ServingRuntime + InferenceService instead of LLMInferenceService.
+  # Requires vllm.image to be set.
+  useCustomRuntime: false
 hardware:
   gpuProduct: "g6e.2xlarge"
   instanceTypeLabel: "node.kubernetes.io/instance-type"
