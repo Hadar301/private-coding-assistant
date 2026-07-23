@@ -37,16 +37,24 @@ spec:
         - vllm.entrypoints.openai.api_server
       args:
         - --port=8000
-        - --served-model-name={{ .Values.model.id }}
+        - --served-model-name={{ .Values.model.servedName | default .Values.model.id }}
         - --trust-remote-code
         - --enable-prefix-caching
         - --enable-auto-tool-choice
         - --tool-call-parser={{ .Values.vllm.toolCallParser }}
         - --reasoning-parser={{ .Values.vllm.reasoningParser }}
+        {{- if not .Values.vllm.enableThinking }}
+        - --chat-template-kwargs
+        - '{"enable_thinking": false}'
+        {{- end }}
       env:
+        {{- if .Values.vllm.extraEnv }}
         {{- range $key, $val := .Values.vllm.extraEnv }}
         - name: {{ $key }}
           value: {{ $val | quote }}
+        {{- end }}
+        {{- else }}
+        []
         {{- end }}
       ports:
         - containerPort: 8000

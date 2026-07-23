@@ -2,6 +2,7 @@ namespace: ai-serving
 clusterResources: true
 model:
   id: "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+  servedName: "" # empty = use model.id as the vLLM --served-model-name
   name: "qwen3-coder"
   poolName: "qwen3-coder-inference-pool"
   workloadServiceSuffix: "kserve-workload-svc"
@@ -16,6 +17,9 @@ vllm:
   # Renders ServingRuntime + InferenceService instead of LLMInferenceService.
   # Requires vllm.image to be set.
   useCustomRuntime: false
+  # Set false to disable Qwen3 thinking mode (adds --chat-template-kwargs).
+  # Use false when the model's thinking blocks exceed test max_tokens budgets.
+  enableThinking: true
 hardware:
   gpuProduct: "g6e.2xlarge"
   instanceTypeLabel: "node.kubernetes.io/instance-type"

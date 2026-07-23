@@ -24,6 +24,42 @@ Before deploying, verify these automatically (do NOT ask the user unless somethi
    make ai-serving-deploy-existing-openshift HELM_ARGS='--set aiGateway.kuadrant.create=false'
    ```
 
+## ARO-specific overrides
+
+On ARO (Azure), the chart defaults use AWS storage/hardware. Add these to `HELM_ARGS` for any ARO deployment:
+
+```bash
+HELM_ARGS="--set storage.storageClass=managed-csi \
+  --set hardware.instanceTypeLabel=nvidia.com/gpu.product \
+  --set hardware.gpuProduct=NVIDIA-H100-NVL \
+  --set hardware.cpu.request=8 --set hardware.cpu.limit=16 \
+  --set hardware.memory.request=80Gi --set hardware.memory.limit=120Gi \
+  --set model.id=Qwen/Qwen3.6-35B-A3B-FP8 \
+  --set model.name=qwen36-vllm \
+  --set vllm.useCustomRuntime=true \
+  --set vllm.image=vllm/vllm-openai:v0.19.0 \
+  --set vllm.maxModelLen=262144 \
+  --set vllm.toolCallParser=qwen3_xml \
+  --set epp.enabled=false \
+  --set aiGateway.kuadrant.create=false"
+```
+
+Also enable TrustyAI in the DSC before deploying with guardrails (ARO only — RHOAI doesn't enable TrustyAI by default):
+```bash
+oc patch datasciencecluster default-dsc --type=merge \
+  -p '{"spec":{"components":{"trustyai":{"managementState":"Managed"}}}}'
+# Wait ~1 min for GuardrailsOrchestrator CRD to appear
+oc get crd guardrailsorchestrators.trustyai.opendatahub.io
+```
+
+GPU node management (ARO, `aro-pca-aue` cluster):
+```bash
+# Scale up before testing (H100 node costs money)
+oc scale machineset aro-pca-aue-cq6r2-gpu-h100 -n openshift-machine-api --replicas=1
+# Scale down when done — CRITICAL
+oc scale machineset aro-pca-aue-cq6r2-gpu-h100 -n openshift-machine-api --replicas=0
+```
+
 ## Deployment Steps
 
 ### AI Serving (once per cluster)
