@@ -131,7 +131,7 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
 {{- end }}
-{{- if (.Values.operators).serviceMesh.enabled | default false }}
+{{- if ((.Values.operators).serviceMesh).enabled | default false }}
 ---
 # OpenShift Service Mesh (required by llm-d/Gateway on ARO)
 apiVersion: v1
@@ -155,7 +155,7 @@ spec:
   source: redhat-operators
   sourceNamespace: openshift-marketplace
 {{- end }}
-{{- if (.Values.operators).serverless.enabled | default false }}
+{{- if ((.Values.operators).serverless).enabled | default false }}
 ---
 # OpenShift Serverless (KNative, required by KServe on ARO)
 apiVersion: v1
