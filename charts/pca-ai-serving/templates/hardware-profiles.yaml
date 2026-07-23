@@ -16,9 +16,9 @@ spec:
     - displayName: CPU
       identifier: cpu
       resourceType: CPU
-      defaultCount: {{ .Values.hardware.cpu.request }}
+      defaultCount: {{ .Values.hardware.cpu.request | int }}
       minCount: 1
-      maxCount: {{ .Values.hardware.cpu.limit }}
+      maxCount: {{ .Values.hardware.cpu.limit | int }}
     - displayName: Memory
       identifier: memory
       resourceType: Memory

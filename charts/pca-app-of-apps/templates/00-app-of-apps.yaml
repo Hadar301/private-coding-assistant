@@ -1,6 +1,9 @@
 # Root App-of-Apps: ArgoCD discovers child Applications in this directory.
 # Each child Application below points to a subdirectory of manifests.
 # Sync waves ensure correct ordering: operators first, then platform, then workloads.
+{{- if not .Values.gitops.cloud }}
+{{- fail "gitops.cloud must be set to 'aro' or 'rosa' (injected by Terraform gitops-bootstrap)" }}
+{{- end }}
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
