@@ -2,14 +2,14 @@ model:
   id: "Qwen/Qwen3.6-35B-A3B-FP8"
   name: "qwen36-vllm"
   poolName: "qwen36-vllm-pool"
+  workloadServiceSuffix: "predictor"
 vllm:
+  useCustomRuntime: true
   image: "vllm/vllm-openai:v0.19.0"
   maxModelLen: 262144
   toolCallParser: "qwen3_xml"
   reasoningParser: "qwen3"
   extraEnv:
-    VLLM_ENABLE_CUDA_COMPATIBILITY: "1"
-    LD_LIBRARY_PATH: "/usr/local/cuda/compat:/usr/local/cuda/lib64:/usr/lib64"
     HF_HOME: "/model-cache"
     HF_HUB_OFFLINE: "0"
     TRITON_CACHE_DIR: "/model-cache/triton-cache"
@@ -33,11 +33,11 @@ storage:
 epp:
   enabled: true
 tlsJob:
-  enabled: false
+  enabled: true
 aiGateway:
   enabled: true
   tls:
-    secretName: "qwen36-vllm-kserve-self-signed-certs"
+    secretName: "llm-d-gateway-tls"
 observability:
   enabled: true
 pca-observability:

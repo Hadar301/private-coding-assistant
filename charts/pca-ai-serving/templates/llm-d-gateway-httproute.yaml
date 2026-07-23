@@ -8,6 +8,7 @@ spec:
   - name: llm-d-gateway
     namespace: {{ .Values.namespace }}
   rules:
+{{- if .Values.epp.enabled }}
   - matches:
     - path:
         type: PathPrefix
@@ -44,12 +45,13 @@ spec:
     timeouts:
       request: "0s"
       backendRequest: "0s"
+{{- end }}
   - matches:
     - path:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: {{ .Values.model.name }}-kserve-workload-svc
+    - name: {{ .Values.model.name }}-{{ .Values.model.workloadServiceSuffix | default "kserve-workload-svc" }}
       port: 8000
     timeouts:
       request: "0s"
